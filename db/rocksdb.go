@@ -1352,16 +1352,92 @@ func (d *RocksDB) computeColumnSize(col int, stopCompute chan os.Signal) (int64,
 // can be very slow operation
 func (d *RocksDB) ComputeInternalStateColumnStats(stopCompute chan os.Signal) error {
 	start := time.Now()
-	glog.Info("db: ComputeInternalStateColumnStats start")
-	for c := 0; c < len(cfNames); c++ {
-		rows, keysSum, valuesSum, err := d.computeColumnSize(c, stopCompute)
-		if err != nil {
-			return err
-		}
-		d.is.SetDBColumnStats(c, rows, keysSum, valuesSum)
-		glog.Info("db: Column ", cfNames[c], ": rows ", rows, ", key bytes ", keysSum, ", value bytes ", valuesSum)
+	glog.Info("db: special ComputeInternalStateColumnStats start")
+	err := d.computeAddressesStats(stopCompute)
+	if err != nil {
+		return err
 	}
-	glog.Info("db: ComputeInternalStateColumnStats finished in ", time.Since(start))
+	// for c := 0; c < len(cfNames); c++ {
+	// 	rows, keysSum, valuesSum, err := d.computeColumnSize(c, stopCompute)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	d.is.SetDBColumnStats(c, rows, keysSum, valuesSum)
+	// 	glog.Info("db: Column ", cfNames[c], ": rows ", rows, ", key bytes ", keysSum, ", value bytes ", valuesSum)
+	// }
+	glog.Info("db: special ComputeInternalStateColumnStats finished in ", time.Since(start))
+	return nil
+}
+
+func (d *RocksDB) computeAddressesStats(stopCompute chan os.Signal) error {
+	var rows, keysSum, valuesSum, c32, c64, c4096, c8192, cc int64
+	ct := make([]int64, 32)
+	var seekKey []byte
+	// do not use cache
+	ro := gorocksdb.NewDefaultReadOptions()
+	ro.SetFillCache(false)
+	for {
+		var key []byte
+		it := d.db.NewIteratorCF(ro, d.cfh[cfAddresses])
+		if rows == 0 {
+			it.SeekToFirst()
+		} else {
+			glog.Info("db: Column ", cfNames[cfAddresses], ": rows ", rows, ", key bytes ", keysSum, ", value bytes ", valuesSum, ", in progress...")
+			it.Seek(seekKey)
+			it.Next()
+		}
+		for count := 0; it.Valid() && count < refreshIterator; it.Next() {
+			select {
+			case <-stopCompute:
+				return errors.New("Interrupted")
+			default:
+			}
+			key = it.Key().Data()
+			val := it.Value().Data()
+			count++
+			rows++
+			keysSum += int64(len(key))
+			valuesSum += int64(len(val))
+			outpoints, err := d.unpackOutpoints(val)
+			if err != nil {
+				return err
+			}
+			m := make(map[string]int)
+			for _, o := range outpoints {
+				m[string(o.btxID)]++
+				if o.index < 0 {
+					o.index = -o.index
+				}
+				if o.index < 32 {
+					c32++
+				} else if o.index < 64 {
+					c64++
+				} else if o.index < 4096 {
+					c4096++
+				} else if o.index < 8192 {
+					c8192++
+				} else {
+					cc++
+				}
+			}
+			for _, c := range m {
+				if c > len(ct) {
+					c = len(ct)
+				}
+				c--
+				ct[c]++
+			}
+		}
+		seekKey = append([]byte{}, key...)
+		valid := it.Valid()
+		it.Close()
+		if !valid {
+			break
+		}
+	}
+	glog.Info("db: Column ", cfNames[cfAddresses], ": rows ", rows, ", key bytes ", keysSum, ", value bytes ", valuesSum, ", finished")
+	glog.Info("db: Outpoints counts c32=", c32, ", c64=", c64, ", c4096=", c4096, ", c8192=", c8192, ", cc=", cc)
+	glog.Info("db: Tx distributions ", ct)
 	return nil
 }
 
