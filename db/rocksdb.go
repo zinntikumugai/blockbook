@@ -1372,6 +1372,7 @@ func (d *RocksDB) ComputeInternalStateColumnStats(stopCompute chan os.Signal) er
 func (d *RocksDB) computeAddressesStats(stopCompute chan os.Signal) error {
 	var rows, keysSum, valuesSum, c32, c64, c4096, c8192, cc int64
 	ct := make([]int64, 32)
+	maxct := 0
 	var seekKey []byte
 	// do not use cache
 	ro := gorocksdb.NewDefaultReadOptions()
@@ -1420,8 +1421,16 @@ func (d *RocksDB) computeAddressesStats(stopCompute chan os.Signal) error {
 					cc++
 				}
 			}
-			for _, c := range m {
+			for btx, c := range m {
 				if c > len(ct) {
+					if c > maxct {
+						maxct = c
+						ad, h, _ := unpackAddressKey(key)
+						a, _, _ := d.chainParser.GetAddressesFromAddrDesc(ad)
+						txid, _ := d.chainParser.UnpackTxid([]byte(btx))
+						glog.Info("ct ", c, ", height ", h, ", address ", a, ", txid ", txid)
+
+					}
 					c = len(ct)
 				}
 				c--
