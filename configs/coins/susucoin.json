@@ -6,10 +6,10 @@
       "alias": "susucoin"
   },
   "ports": {
-    "backend_rpc": 8877,
+    "backend_rpc": 8876,
     "backend_message_queue": 38341,
-    "blockbook_internal": 9070,
-    "blockbook_public": 9070
+    "blockbook_internal": 38377,
+    "blockbook_public": 38377
   },
   "ipc": {
     "rpc_url_template": "http://127.0.0.1:{{.Ports.BackendRPC}}",
