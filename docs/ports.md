@@ -38,5 +38,6 @@
 | PIVX Testnet         | 19049                   | 19149                 | 18049            | 48349                       |
 | Koto Testnet         | 19051                   | 19151                 | 18051            | 48351                       |
 | Flo Testnet          | 19066                   | 19166                 | 18066            | 48366                       |
+| Susu Testnet         | 19070                   | 19170                 | 18876            | 48377                       |
 
 > NOTE: This document is generated from coin definitions in `configs/coins`.
