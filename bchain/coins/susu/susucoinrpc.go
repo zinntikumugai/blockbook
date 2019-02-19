@@ -40,7 +40,7 @@ func (b *SusucoinRPC) Initialize() error {
 	params := GetChainParams(chainName)
 
 	// always create parser
-	b.Parser = NewSusuParser(params, b.ChainConfig)
+	b.Parser = NewSusucoinParser(params, b.ChainConfig)
 
 	// parameters for getInfo request
 	if params.Net == MainnetMagic {
