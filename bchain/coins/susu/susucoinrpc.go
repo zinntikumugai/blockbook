@@ -9,18 +9,18 @@ import (
 )
 
 // SusucoinRPC is an interface to JSON-RPC bitcoind service.
-type SusuRPC struct {
+type SusucoinRPC struct {
 	*btc.BitcoinRPC
 }
 
 // NewSusucoinRPC returns new SusucoinRPC instance.
-func NewSusuRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
+func NewSusucoinRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &SusuRPC{
+	s := &SusucoinRPC{
 		b.(*btc.BitcoinRPC),
 	}
 	s.RPCMarshaler = btc.JSONMarshalerV2{}
@@ -30,7 +30,7 @@ func NewSusuRPC(config json.RawMessage, pushHandler func(bchain.NotificationType
 }
 
 // Initialize initializes SusucoinRPC instance.
-func (b *SusuRPC) Initialize() error {
+func (b *SusucoinRPC) Initialize() error {
 	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
