@@ -32,13 +32,13 @@ func init() {
 }
 
 // SusucoinParser handle
-type SusucoinParser struct {
+type SusuParser struct {
 	*btc.BitcoinParser
 }
 
 // NewSusucoinParser returns new SusucoinParser instance
-func NewSusucoinParser(params *chaincfg.Params, c *btc.Configuration) *SusucoinParser {
-	return &SusucoinParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
+func NewSusuParser(params *chaincfg.Params, c *btc.Configuration) *SusuParser {
+	return &SusuParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
 }
 
 // GetChainParams contains network parameters for the main Susucoin network,
