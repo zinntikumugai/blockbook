@@ -1,4 +1,4 @@
-package Susucoin
+package susu
 
 import (
 	"blockbook/bchain"
