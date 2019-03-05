@@ -77,8 +77,8 @@ func init() {
 	BlockChainFactories["Fujicoin"] = fujicoin.NewFujicoinRPC
 	BlockChainFactories["Flo"] = flo.NewFloRPC
 	BlockChainFactories["Bellcoin"] = bellcoin.NewBellcoinRPC
-	BlockChainFactories["BitZeny"] = bitzeny.NewBitZenyParser
-	BlockChainFactories["BitZeny Testnet"] = bitzeny.NewBitZenyParser
+	BlockChainFactories["BitZeny"] = bitzeny.NewBitZenyRPC
+	BlockChainFactories["BitZeny Testnet"] = bitzeny.NewBitZenyRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
