@@ -38,6 +38,7 @@
 | Groestlcoin Testnet  | 19045                   | 19145                 | 18045            | 48345                       |
 | PIVX Testnet         | 19049                   | 19149                 | 18049            | 48349                       |
 | Koto Testnet         | 19051                   | 19151                 | 18051            | 48351                       |
+| BitZeny              | 19053                   | 19153                 | 19252            | 48353                       |
 | Flo Testnet          | 19066                   | 19166                 | 18066            | 48366                       |
 
 > NOTE: This document is generated from coin definitions in `configs/coins`.

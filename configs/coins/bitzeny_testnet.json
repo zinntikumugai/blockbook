@@ -1,15 +1,15 @@
 {
   "coin": {
-      "name": "BitZeny",
+      "name": "BitZeny Testnet",
       "shortcut": "ZNY",
-      "label": "BitZeny",
-      "alias": "bitzeny"
+      "label": "BitZeny Testnet",
+      "alias": "bitzeny_testnet"
   },
   "ports": {
-    "backend_rpc": 9252,
-    "backend_message_queue": 38353,
-    "blockbook_internal": 9053,
-    "blockbook_public": 9153
+    "backend_rpc": 19252,
+    "backend_message_queue": 48353,
+    "blockbook_internal": 19053,
+    "blockbook_public": 19153
   },
   "ipc": {
     "rpc_url_template": "http://127.0.0.1:{{.Ports.BackendRPC}}",
@@ -19,7 +19,7 @@
     "message_queue_binding_template": "tcp://127.0.0.1:{{.Ports.BackendMessageQueue}}"
   },
   "backend": {
-    "package_name": "backend-bitzeny",
+    "package_name": "backend-bitzeny-testnet",
     "package_revision": "satoshilabs-1",
     "system_user": "bitzeny",
     "version": "2.0.2",
@@ -44,7 +44,7 @@
     }
   },
   "blockbook": {
-    "package_name": "blockbook-bitzeny",
+    "package_name": "blockbook-bitzeny-testnet",
     "system_user": "blockbook-bitzeny",
     "internal_binding_template": ":{{.Ports.BlockbookInternal}}",
     "public_binding_template": ":{{.Ports.BlockbookPublic}}",
