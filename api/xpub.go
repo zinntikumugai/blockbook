@@ -34,9 +34,17 @@ type xpubTxid struct {
 
 type xpubTxids []xpubTxid
 
-func (a xpubTxids) Len() int           { return len(a) }
-func (a xpubTxids) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a xpubTxids) Less(i, j int) bool { return a[i].height >= a[j].height }
+func (a xpubTxids) Len() int      { return len(a) }
+func (a xpubTxids) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a xpubTxids) Less(i, j int) bool {
+	// if the heights are equal, make inputs less than outputs
+	hi := a[i].height
+	hj := a[j].height
+	if hi == hj {
+		return (a[i].inputOutput & txInput) >= (a[j].inputOutput & txInput)
+	}
+	return hi > hj
+}
 
 type xpubAddress struct {
 	addrDesc  bchain.AddressDescriptor
@@ -359,15 +367,16 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 		inputOutput byte
 	}
 	var (
-		txc      xpubTxids
-		txmMap   map[string]*Tx
-		txCount  int
-		txs      []*Tx
-		txids    []string
-		pg       Paging
-		filtered bool
-		err      error
-		uBalSat  big.Int
+		txc            xpubTxids
+		txmMap         map[string]*Tx
+		txCount        int
+		txs            []*Tx
+		txids          []string
+		pg             Paging
+		filtered       bool
+		err            error
+		uBalSat        big.Int
+		unconfirmedTxs int
 	)
 	data, bestheight, err := w.getXpubData(xpub, page, txsOnPage, option, filter, gap)
 	if err != nil {
@@ -418,6 +427,9 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 					}
 					// skip already confirmed txs, mempool may be out of sync
 					if tx.Confirmations == 0 {
+						if !foundTx {
+							unconfirmedTxs++
+						}
 						uBalSat.Add(&uBalSat, tx.getAddrVoutValue(ad.addrDesc))
 						uBalSat.Sub(&uBalSat, tx.getAddrVinValue(ad.addrDesc))
 						if page == 0 && !foundTx && (useTxids == nil || useTxids(&txid, ad)) {
@@ -521,7 +533,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 		TotalSentSat:          (*Amount)(&data.sentSat),
 		Txs:                   txCount,
 		UnconfirmedBalanceSat: (*Amount)(&uBalSat),
-		UnconfirmedTxs:        len(txmMap),
+		UnconfirmedTxs:        unconfirmedTxs,
 		Transactions:          txs,
 		Txids:                 txids,
 		TotalTokens:           totalTokens,
