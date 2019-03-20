@@ -7,7 +7,7 @@
   },
   "ports": {
     "backend_rpc": 31933,
-    "backend_message_queue": 38389,
+    "backend_message_queue": 0,
     "blockbook_internal": 9089,
     "blockbook_public": 9189
   },
