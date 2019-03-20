@@ -22,6 +22,7 @@ import (
 	"blockbook/bchain/coins/namecoin"
 	"blockbook/bchain/coins/pivx"
 	"blockbook/bchain/coins/qtum"
+	"blockbook/bchain/coins/sdgo"
 	"blockbook/bchain/coins/vertcoin"
 	"blockbook/bchain/coins/xzc"
 	"blockbook/bchain/coins/zec"
@@ -79,6 +80,7 @@ func init() {
 	BlockChainFactories["Bellcoin"] = bellcoin.NewBellcoinRPC
 	BlockChainFactories["Qtum"] = qtum.NewQtumRPC
 	BlockChainFactories["Qtum Testnet"] = qtum.NewQtumRPC
+	BlockChainFactories["Sandego"] = sdgo.NewSanDeGoRPC
 }
 
 // GetCoinNameFromConfig gets coin name and coin shortcut from config file
