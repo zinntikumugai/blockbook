@@ -26,14 +26,15 @@ type SocketIoServer struct {
 	txCache     *db.TxCache
 	chain       bchain.BlockChain
 	chainParser bchain.BlockChainParser
+	mempool     bchain.Mempool
 	metrics     *common.Metrics
 	is          *common.InternalState
 	api         *api.Worker
 }
 
 // NewSocketIoServer creates new SocketIo interface to blockbook and returns its handle
-func NewSocketIoServer(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState) (*SocketIoServer, error) {
-	api, err := api.NewWorker(db, chain, txCache, is)
+func NewSocketIoServer(db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState) (*SocketIoServer, error) {
+	api, err := api.NewWorker(db, chain, mempool, txCache, is)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +65,7 @@ func NewSocketIoServer(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCa
 		txCache:     txCache,
 		chain:       chain,
 		chainParser: chain.GetChainParser(),
+		mempool:     mempool,
 		metrics:     metrics,
 		is:          is,
 		api:         api,
@@ -182,8 +184,8 @@ func (s *SocketIoServer) onMessage(c *gosocketio.Channel, req map[string]json.Ra
 		s.metrics.SocketIORequests.With(common.Labels{"method": method, "status": "success"}).Inc()
 		return rv
 	}
-	glog.Error(c.Id(), " onMessage ", method, ": ", errors.ErrorStack(err))
-	s.metrics.SocketIORequests.With(common.Labels{"method": method, "status": err.Error()}).Inc()
+	glog.Error(c.Id(), " onMessage ", method, ": ", errors.ErrorStack(err), ", data ", string(params))
+	s.metrics.SocketIORequests.With(common.Labels{"method": method, "status": "failure"}).Inc()
 	e := resultError{}
 	e.Error.Message = err.Error()
 	return e
@@ -224,7 +226,7 @@ func (s *SocketIoServer) getAddressTxids(addr []string, opts *addrOpts) (res res
 				return res, err
 			}
 		} else {
-			o, err := s.chain.GetMempoolTransactions(address)
+			o, err := s.mempool.GetTransactions(address)
 			if err != nil {
 				return res, err
 			}
@@ -326,13 +328,15 @@ func txToResTx(tx *api.Tx) resTx {
 		outputs[i] = output
 	}
 	var h int
+	var blocktime int64
 	if tx.Confirmations == 0 {
 		h = -1
 	} else {
 		h = int(tx.Blockheight)
+		blocktime = tx.Blocktime
 	}
 	return resTx{
-		BlockTimestamp: tx.Blocktime,
+		BlockTimestamp: blocktime,
 		FeeSatoshis:    tx.FeesSat.AsInt64(),
 		Hash:           tx.Txid,
 		Height:         h,
@@ -666,7 +670,7 @@ func (s *SocketIoServer) onSubscribe(c *gosocketio.Channel, req []byte) interfac
 
 	onError := func(id, sc, err, detail string) {
 		glog.Error(id, " onSubscribe ", err, ": ", detail)
-		s.metrics.SocketIOSubscribes.With(common.Labels{"channel": sc, "status": err}).Inc()
+		s.metrics.SocketIOSubscribes.With(common.Labels{"channel": sc, "status": "failure"}).Inc()
 	}
 
 	r := string(req)

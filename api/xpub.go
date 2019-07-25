@@ -92,7 +92,7 @@ func (w *Worker) xpubGetAddressTxids(addrDesc bchain.AddressDescriptor, mempool 
 	}
 	if mempool {
 		uniqueTxs := make(map[string]int)
-		o, err := w.chain.GetMempoolTransactionsForAddrDesc(addrDesc)
+		o, err := w.mempool.GetAddrDescTransactions(addrDesc)
 		if err != nil {
 			return nil, false, err
 		}
@@ -101,7 +101,7 @@ func (w *Worker) xpubGetAddressTxids(addrDesc bchain.AddressDescriptor, mempool 
 				l = len(txs)
 				callback(m.Txid, 0, []int32{m.Vout})
 				if len(txs) > l {
-					uniqueTxs[m.Txid] = l - 1
+					uniqueTxs[m.Txid] = l
 				}
 			} else {
 				if m.Vout < 0 {
@@ -160,7 +160,7 @@ func (w *Worker) xpubCheckAndLoadTxids(ad *xpubAddress, filter *AddressFilter, m
 
 func (w *Worker) xpubDerivedAddressBalance(data *xpubData, ad *xpubAddress) (bool, error) {
 	var err error
-	if ad.balance, err = w.db.GetAddrDescBalance(ad.addrDesc); err != nil {
+	if ad.balance, err = w.db.GetAddrDescBalance(ad.addrDesc, db.AddressBalanceDetailUTXO); err != nil {
 		return false, err
 	}
 	if ad.balance != nil {
@@ -383,13 +383,13 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 		return nil, err
 	}
 	// setup filtering of txids
-	var useTxids func(txid *xpubTxid, ad *xpubAddress) bool
+	var txidFilter func(txid *xpubTxid, ad *xpubAddress) bool
 	if !(filter.FromHeight == 0 && filter.ToHeight == 0 && filter.Vout == AddressFilterVoutOff) {
 		toHeight := maxUint32
 		if filter.ToHeight != 0 {
 			toHeight = filter.ToHeight
 		}
-		useTxids = func(txid *xpubTxid, ad *xpubAddress) bool {
+		txidFilter = func(txid *xpubTxid, ad *xpubAddress) bool {
 			if txid.height < filter.FromHeight || txid.height > toHeight {
 				return false
 			}
@@ -406,6 +406,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 	// process mempool, only if ToHeight is not specified
 	if filter.ToHeight == 0 && !filter.OnlyConfirmed {
 		txmMap = make(map[string]*Tx)
+		mempoolEntries := make(bchain.MempoolTxidEntries, 0)
 		for _, da := range [][]xpubAddress{data.addresses, data.changeAddresses} {
 			for i := range da {
 				ad := &da[i]
@@ -432,16 +433,21 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 						}
 						uBalSat.Add(&uBalSat, tx.getAddrVoutValue(ad.addrDesc))
 						uBalSat.Sub(&uBalSat, tx.getAddrVinValue(ad.addrDesc))
-						if page == 0 && !foundTx && (useTxids == nil || useTxids(&txid, ad)) {
-							if option == AccountDetailsTxidHistory {
-								txids = append(txids, tx.Txid)
-							} else if option >= AccountDetailsTxHistoryLight {
-								txs = append(txs, tx)
-							}
+						// mempool txs are returned only on the first page, uniquely and filtered
+						if page == 0 && !foundTx && (txidFilter == nil || txidFilter(&txid, ad)) {
+							mempoolEntries = append(mempoolEntries, bchain.MempoolTxidEntry{Txid: txid.txid, Time: uint32(tx.Blocktime)})
 						}
 					}
-
 				}
+			}
+		}
+		// sort the entries by time descending
+		sort.Sort(mempoolEntries)
+		for _, entry := range mempoolEntries {
+			if option == AccountDetailsTxidHistory {
+				txids = append(txids, entry.Txid)
+			} else if option >= AccountDetailsTxHistoryLight {
+				txs = append(txs, txmMap[entry.Txid])
 			}
 		}
 	}
@@ -459,7 +465,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 					}
 					// add tx only once
 					if !added {
-						add := useTxids == nil || useTxids(&txid, ad)
+						add := txidFilter == nil || txidFilter(&txid, ad)
 						txcMap[txid.txid] = add
 						if add {
 							txc = append(txc, txid)
@@ -489,7 +495,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 			if option == AccountDetailsTxidHistory {
 				txids = append(txids, xpubTxid.txid)
 			} else {
-				tx, err := w.txFromTxid(xpubTxid.txid, bestheight, option)
+				tx, err := w.txFromTxid(xpubTxid.txid, bestheight, option, nil)
 				if err != nil {
 					return nil, err
 				}
@@ -499,7 +505,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 	} else {
 		txCount = int(data.txCountEstimate)
 	}
-	totalTokens := 0
+	usedTokens := 0
 	var tokens []Token
 	var xpubAddresses map[string]struct{}
 	if option > AccountDetailsBasic {
@@ -510,7 +516,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 		for i := range da {
 			ad := &da[i]
 			if ad.balance != nil {
-				totalTokens++
+				usedTokens++
 			}
 			if option > AccountDetailsBasic {
 				token := w.tokenFromXpubAddress(data, ad, ci, i, option)
@@ -536,7 +542,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 		UnconfirmedTxs:        unconfirmedTxs,
 		Transactions:          txs,
 		Txids:                 txids,
-		TotalTokens:           totalTokens,
+		UsedTokens:            usedTokens,
 		Tokens:                tokens,
 		XPubAddresses:         xpubAddresses,
 	}
